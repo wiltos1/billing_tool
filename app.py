@@ -5,8 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "S0meV3ryL0ngRandomString_!@#$%^&*()_+2025"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////var/data/billing.db"
-#app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///billing.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///billing.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
@@ -748,10 +747,7 @@ DOCTORS_HTML = """
 </html>
 """
 
-
-with app.app_context():
-    ensure_default_data()
-
-
 if __name__ == "__main__":
+    with app.app_context():
+        ensure_default_data()
     app.run(debug=True)
