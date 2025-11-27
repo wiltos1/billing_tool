@@ -3,3 +3,4 @@ Flask-SQLAlchemy==2.5.1
 SQLAlchemy==1.4.49
 Werkzeug==2.3.7
 gunicorn==21.2.0
+reportlab==4.0.7

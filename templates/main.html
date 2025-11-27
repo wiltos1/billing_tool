@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Patient Billing Optimizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f7fb;
+        }
+        .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .card {
+            background: #fff; padding: 15px 20px; margin: 15px 0;
+            border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        }
+        .toggle-buttons { display: flex; gap: 8px; align-items: center; }
+        .toggle-buttons a {
+            padding: 6px 14px; border-radius: 999px; border: 1px solid #1976d2;
+            color: #1976d2; text-decoration: none; font-size: 0.9em;
+        }
+        .toggle-buttons a.active-view { background: #1976d2; color: #fff; }
+        .topbar-actions { display: flex; align-items: center; gap: 12px; }
+        .topbar-actions a.action-link { color: #1976d2; text-decoration: none; font-weight: bold; }
+        label { display: block; margin-top: 8px; }
+        input, select {
+            width: 100%; padding: 6px; margin-top: 2px; border: 1px solid #ccc; border-radius: 4px;
+        }
+        button {
+            margin-top: 10px; padding: 6px 12px; border: none; border-radius: 4px;
+            background: #1976d2; color: #fff; cursor: pointer;
+        }
+        .delete-btn { background: #c62828; margin-right: 8px; }
+        .delete-btn:hover { opacity: 0.9; }
+        .card-actions { margin-top: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; margin-top: 8px; }
+        th, td { border: 1px solid #ddd; padding: 6px; }
+        th { background: #e8eef4; }
+        .badge {
+            padding: 2px 6px; border-radius: 4px; font-size: 0.75em; margin-left: 6px;
+        }
+        .active { background: #c8e6c9; }
+        .discharged { background: #ffcdd2; }
+        .muted { opacity: 0.6; font-style: italic; }
+        img { max-height: 60px; vertical-align: middle; margin-right: 10px; }
+        .card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+        .card-title { margin:0; }
+        .section-divider { border:0; border-top:1px solid #e5e8ec; margin:12px 0; }
+        .section-header { display:flex; align-items:center; gap:8px; margin:0 0 6px 0; }
+        .inline-muted { font-size:0.85em; color:#6b7280; }
+        .card-header button { margin-top: 0; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <div>
+        <img src="/static/ahs_logo.png" alt="AHS logo">
+        <strong>Patient Billing Optimizer</strong>
+    </div>
+    <div class="toggle-buttons">
+        <a href="{{ url_for('patients.index', view='active') }}"
+           class="{% if current_view == 'active' %}active-view{% endif %}">Active Patients</a>
+        <a href="{{ url_for('patients.index', view='archived') }}"
+           class="{% if current_view == 'archived' %}active-view{% endif %}">Archived Patients</a>
+        <a href="{{ url_for('shift.shift_grid') }}">Shift Grid</a>
+    </div>
+    <div class="topbar-actions">
+        <span>Logged in as {{ session["user"] }} &mdash; <a href="{{ url_for('auth.logout') }}">Logout</a></span>
+    </div>
+</div>
+
+{% if current_view == "active" %}
+<div class="card">
+    <h2>Create New Patient</h2>
+    <form action="{{ url_for('patients.create_patient') }}" method="post">
+        <label>Initials</label>
+        <input type="text" name="patient_initials" maxlength="4" required>
+
+        <label>Patient Identifier</label>
+        <input type="text" name="patient_identifier" required>
+
+        <label>Activation Date</label>
+        <input type="date" name="start_date" value="{{ default_start_date }}" required>
+
+        <label>Activation Time</label>
+        <input type="time" name="start_time" value="{{ default_start_time }}" step="60">
+
+        <button>Create Patient</button>
+    </form>
+</div>
+{% endif %}
+
+{% if current_view == "active" %}
+<div class="card">
+    <h3>Active Patients</h3>
+{% if active_patients %}
+    <form method="get">
+        <input type="hidden" name="view" value="active">
+        <select name="selected_patient" onchange="this.form.submit()">
+            {% for p in active_patients %}
+            <option value="{{ p.id }}"
+                {% if selected_patient and selected_patient.id == p.id %}selected{% endif %}>
+                #{{ p.id }} - {{ p.initials }} - {{ p.identifier }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+    {% else %}
+    <p class="muted">None</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if current_view == "archived" %}
+<div class="card">
+    <h3>Archived Patients</h3>
+    {% if archived_patients %}
+    <form method="get">
+        <input type="hidden" name="view" value="archived">
+        <select name="selected_patient" onchange="this.form.submit()">
+            {% for p in archived_patients %}
+            <option value="{{ p.id }}"
+                {% if selected_patient and selected_patient.id == p.id %}selected{% endif %}>
+                #{{ p.id }} - {{ p.initials }} - {{ p.identifier }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+    {% else %}
+    <p class="muted">None</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if selected_patient %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">
+                Patient #{{ selected_patient.id }} - {{ selected_patient.initials }} - {{ selected_patient.identifier }}
+                {% if selected_patient.status == "active" %}
+                    <span class="badge active">active</span>
+                {% else %}
+                    <span class="badge discharged">archived</span>
+                {% endif %}
+                <span class="badge">{{ selected_patient.care_status }}</span>
+            </h2>
+            {% if selected_patient.start_display %}
+            <p class="muted">Activated {{ selected_patient.start_display }}</p>
+            {% endif %}
+            {% if selected_patient.discharge_display %}
+            <p class="muted">Discharged {{ selected_patient.discharge_display }}</p>
+            {% endif %}
+        </div>
+        <form action="{{ url_for('patients.delete_patient', pid=selected_patient.id) }}" method="post" onsubmit="return confirm('Delete this patient?');">
+            <input type="hidden" name="view" value="{{ current_view }}">
+            <button type="submit" class="delete-btn">Delete Patient</button>
+        </form>
+    </div>
+    <hr class="section-divider">
+    <div class="card-actions">
+        <form action="{{ url_for('patients.update_status', pid=selected_patient.id) }}" method="post" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <h3 class="section-header">Patient Status</h3>
+            <select name="care_status">
+                {% for option in care_status_options %}
+                <option value="{{ option }}" {% if selected_patient.care_status == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+            <input type="date" name="care_date" value="{{ status_default_date }}">
+            <input type="time" name="care_time" value="{{ status_default_time }}" step="60">
+            <button type="submit">Update Status</button>
+            {% if selected_patient.care_admitted_at %}
+            <span class="muted">Admitted: {{ selected_patient.care_admitted_at.strftime("%b %d, %Y %I:%M %p") }}</span>
+            {% endif %}
+            {% if selected_patient.care_delivered_at %}
+            <span class="muted">Delivered: {{ selected_patient.care_delivered_at.strftime("%b %d, %Y %I:%M %p") }}</span>
+            {% endif %}
+        </form>
+    </div>
+
+{% if selected_patient.status == "active" %}
+
+{% if patient_doctors %}
+<h3>Doctors Involved</h3>
+<table>
+<tr><th>ID</th><th>Doctor</th></tr>
+{% for d in patient_doctors %}
+<tr><td>{{ d.id }}</td><td>Dr. {{ d.name }}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<hr class="section-divider">
+<h3 class="section-header">Patient Timeline</h3>
+{% if timeline_entries %}
+<table>
+<tr><th>Date/Time</th><th>Doctor</th><th>Action / Status</th></tr>
+{% for entry in timeline_entries %}
+<tr>
+    <td>{{ entry.time.strftime("%b %d, %Y %I:%M %p") }}</td>
+    <td>{% if entry.doctor_name %}Dr. {{ entry.doctor_name }}{% elif entry.doctor %}Dr. {{ entry.doctor.name }}{% else %}—{% endif %}</td>
+    <td>
+        {% if entry.status_row %}
+            <strong>{{ entry.action }}</strong>
+        {% else %}
+            {{ entry.action }}{% if entry.delivery_by %} ({{ entry.delivery_by }}){% endif %}
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="muted">No timeline events for this patient yet.</p>
+{% endif %}
+
+<hr class="section-divider">
+<h3 class="section-header">Optimized Billing</h3>
+<div style="margin-bottom:8px;">
+    <form action="{{ url_for('patients.download_optimized_pdf', pid=selected_patient.id) }}" method="get">
+        <button type="submit" {% if selected_patient.care_status != "Delivered" %}disabled style="opacity:0.6; cursor:not-allowed;"{% endif %}>
+            Generate Optimized Billing PDF
+        </button>
+    </form>
+</div>
+{% if optimization_error %}
+<p class="muted">{{ optimization_error }}</p>
+{% endif %}
+
+{% if patient_billings %}
+<hr class="section-divider">
+<h3 class="section-header">Billing Entries</h3>
+<table>
+<tr><th>Doctor</th><th>Code</th><th>Description</th><th>Amount</th><th>Date/Time</th></tr>
+{% for b in patient_billings %}
+<tr>
+<td>{% if b.doctor %}Dr. {{ b.doctor.name }}{% else %}Unknown{% endif %}</td>
+<td>{{ b.code }}</td><td>{{ b.description }}</td><td>{{ "%.2f"|format(b.amount) }}</td>
+<td>{{ b.timestamp.strftime("%b %d, %Y %I:%M %p") }}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<hr class="section-divider">
+<h3 class="section-header">Discharge Patient</h3>
+
+<form action="{{ url_for('patients.discharge_patient', pid=selected_patient.id) }}" method="post">
+    <label>Discharge Date</label>
+    <input type="date" name="discharge_date" value="{{ default_discharge_date }}" required>
+    <label>Discharge Time</label>
+    <input type="time" name="discharge_time" value="{{ default_discharge_time }}" step="60">
+    <button>Discharge Patient &amp; Optimize</button>
+</form>
+
+{% else %}
+
+<hr class="section-divider">
+<h3>Final Optimized Billing</h3>
+{% if optimized_billings %}
+<table>
+<tr><th>Doctor</th><th>Code</th><th>Description</th><th>Amount</th><th>Date/Time</th></tr>
+{% for b in optimized_billings %}
+<tr>
+<td>{% if b.doctor %}Dr. {{ b.doctor.name }}{% else %}Unknown{% endif %}</td>
+<td>{{ b.code }}</td><td>{{ b.description }}</td><td>{{ "%.2f"|format(b.amount) }}</td>
+<td>{{ b.timestamp.strftime("%b %d, %Y %I:%M %p") }}</td>
+</tr>
+{% endfor %}
+</table>
+<h3>Total: ${{ "%.2f"|format(selected_patient.optimized_total) }}</h3>
+{% else %}
+<p class="muted">No billing data.</p>
+{% endif %}
+
+<hr class="section-divider">
+<p class="muted">Archived patients cannot be modified.</p>
+
+<form action="{{ url_for('patients.restore_patient', pid=selected_patient.id) }}" method="post">
+    <button>Restore to Active</button>
+</form>
+
+{% endif %}
+</div>
+{% endif %}
+
+</body>
+</html>

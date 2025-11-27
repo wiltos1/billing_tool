@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Shift Grid</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1100px; margin:0 auto; padding:20px; background:#f3f7fb; }
+        .card { background:#fff; padding:15px 20px; margin:15px 0; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.08); }
+        table { width:100%; border-collapse:collapse; }
+        th, td { border:1px solid #ddd; padding:6px; text-align:center; }
+        th { background:#e8eef4; }
+        select { width:100%; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; }
+        .muted { opacity:0.7; font-style:italic; }
+        .divider { margin:12px 0; border-bottom:1px solid #ddd; }
+        button { padding:8px 12px; border:none; border-radius:4px; background:#1976d2; color:#fff; cursor:pointer; }
+        input[type="date"] { padding:6px; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div>
+            <strong>Shift Grid</strong> &mdash; Dr. {{ shift_doctor.name }}
+        </div>
+        <div>
+            <a href="{{ url_for('patients.index', view='active') }}">Back to Patients</a>
+            <span style="margin:0 8px;">|</span>
+            <a href="{{ url_for('doctors.manage_doctors') }}">Manage Doctors</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <p class="muted">Fill 15-minute slots. Leave blank if no patient was attended.</p>
+        <div class="muted">Shift window: {{ shift_window.start_datetime.strftime("%b %d, %Y %H:%M") }} to {{ shift_window.end_datetime.strftime("%b %d, %Y %H:%M") }}</div>
+        <form id="grid-form" method="post" action="{{ url_for('shift.shift_grid') }}">
+            {% for segment in segments %}
+            <h4 style="margin-bottom:6px;">{{ segment.date.strftime("%b %d, %Y") }}</h4>
+            <table>
+                <tr><th>Hour</th><th>00</th><th>15</th><th>30</th><th>45</th></tr>
+                {% for row in range(0, (segment.slots|length + 3)//4) %}
+                <tr>
+                    {% set base = row * 4 %}
+                    {% set hour_slot = segment.slots[base] if base < (segment.slots|length) else None %}
+                    <th>{% if hour_slot %}{{ hour_slot.strftime("%H") }}:00{% endif %}</th>
+                    {% for offset in range(0,4) %}
+                        {% set idx = base + offset %}
+                        {% set slot_time = segment.slots[idx] if idx < (segment.slots|length) else None %}
+                        {% if slot_time %}
+                        {% set slot_obj = existing.get(slot_time.replace(second=0, microsecond=0)) %}
+                        {% set existing_patient = slot_obj.patient_id if slot_obj else None %}
+                        {% set existing_action = slot_obj.action if slot_obj else '' %}
+                        {% set existing_delivery = slot_obj.delivery_by if slot_obj else '' %}
+                        <td>
+                            <div style="font-size:0.8em; margin-bottom:4px;">{{ slot_time.strftime("%H:%M") }}</div>
+                            <select name="slot_patient_{{ slot_time.timestamp()|int }}" onchange="saveGrid()">
+                                <option value="" {% if not existing_patient %}selected{% endif %}>--</option>
+                                {% for p in active_patients %}
+                                <option value="{{ p.id }}" {% if existing_patient == p.id %}selected{% endif %}>{{ p.initials }} ({{ p.identifier }})</option>
+                                {% endfor %}
+                            </select>
+                            <select name="slot_action_{{ slot_time.timestamp()|int }}" onchange="toggleDelivery(this)">
+                                <option value="" {% if not existing_action %}selected{% endif %}>--</option>
+                                <option value="attended" {% if existing_action == 'attended' %}selected{% endif %}>Attended</option>
+                                <option value="delivery" {% if existing_action == 'delivery' %}selected{% endif %}>Delivery</option>
+                            </select>
+                            <select class="delivery-select" name="slot_delivery_{{ slot_time.timestamp()|int }}" onchange="saveGrid()" {% if existing_action != 'delivery' %}disabled style="display:none;"{% else %}style="display:block;"{% endif %}>
+                                <option value="" {% if not existing_delivery %}selected{% endif %}>--</option>
+                                <option value="doctor" {% if existing_delivery == 'doctor' %}selected{% endif %}>Doctor</option>
+                                <option value="ob" {% if existing_delivery == 'ob' %}selected{% endif %}>OB</option>
+                            </select>
+                            <input class="delivery-time" type="datetime-local" name="slot_delivery_time_{{ slot_time.timestamp()|int }}"
+                                   value="{{ slot_time.strftime('%Y-%m-%dT%H:%M') }}"
+                                   onchange="saveGrid()"
+                                   {% if existing_action != 'delivery' %}style="display:none;" disabled{% else %}style="display:block;"{% endif %}>
+                        </td>
+                        {% else %}
+                        <td></td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+            {% endfor %}
+        </form>
+    </div>
+    <script>
+        function toggleDelivery(el) {
+            const cell = el.closest('td');
+            const deliverySel = cell ? cell.querySelector('.delivery-select') : null;
+            const deliveryTime = cell ? cell.querySelector('.delivery-time') : null;
+            if (deliverySel) {
+                if (el.value === 'delivery') {
+                    deliverySel.disabled = false;
+                    deliverySel.style.display = 'block';
+                } else {
+                    deliverySel.disabled = true;
+                    deliverySel.value = '';
+                    deliverySel.style.display = 'none';
+                }
+            }
+            if (deliveryTime) {
+                if (el.value === 'delivery') {
+                    deliveryTime.disabled = false;
+                    deliveryTime.style.display = 'block';
+                } else {
+                    deliveryTime.disabled = true;
+                    deliveryTime.style.display = 'none';
+                }
+            }
+            saveGrid();
+            return false;
+        }
+        function saveGrid(callback) {
+            const form = document.getElementById('grid-form');
+            if (!form) { if (callback) callback(); return false; }
+            const data = new FormData(form);
+            fetch(form.action, { method: 'POST', body: data, headers: {'X-Requested-With': 'fetch'} })
+                .finally(() => { if (callback) callback(); });
+            return false;
+        }
+        function backToPatients(url) {
+            return saveGrid(() => { window.location = url; });
+        }
+    </script>
+</body>
+</html>

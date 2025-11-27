@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Doctors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f7fb;
+        }
+        .card {
+            background:#fff; padding:20px; margin:15px 0;
+            border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.08);
+        }
+        h1 { margin-top:0; }
+        label { display:block; margin-top:8px; }
+        input, select {
+            width:100%; padding:6px; margin-top:2px; border:1px solid #ccc; border-radius:4px;
+        }
+        button {
+            margin-top:10px; padding:6px 12px; border:none; border-radius:4px;
+            background:#1976d2; color:#fff; cursor:pointer;
+        }
+        ul { padding-left:20px; }
+        .muted { opacity:0.7; font-style:italic; }
+        a { color:#1976d2; }
+        .top-link { display:inline-block; margin-bottom:12px; }
+    </style>
+</head>
+<body>
+    <a class="top-link" href="{{ url_for('shift.shift_grid') }}">&#8592; Back to Shift Grid</a>
+    <div class="card">
+        <h1>Doctors On Call</h1>
+        {% if doctors %}
+            {% if shift_doctor and shift_window %}
+            <p class="muted">Current on shift: Dr. {{ shift_doctor.name }} ({{ shift_window.start_datetime.strftime("%b %d, %Y %H:%M") }} &rarr; {{ shift_window.end_datetime.strftime("%b %d, %Y %H:%M") }})</p>
+            {% else %}
+            <p class="muted">No doctor is currently on shift. Set one below.</p>
+            {% endif %}
+            <div class="card" style="margin-top:12px;">
+                <h3>Change On-Shift Doctor</h3>
+                <form method="post" action="{{ url_for('doctors.set_on_shift') }}">
+                    <label>Doctor</label>
+                    <select name="doctor_id">
+                        {% for doc in doctors %}
+                        <option value="{{ doc.id }}" {% if shift_doctor and shift_doctor.id == doc.id %}selected{% endif %}>
+                            Dr. {{ doc.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <label>Shift Start</label>
+                    <input type="date" name="shift_start_date" value="{{ default_start_date }}">
+                    <input type="time" name="shift_start_time" value="{{ default_start_time }}">
+                    <label>Shift End</label>
+                    <input type="date" name="shift_end_date" value="{{ default_end_date }}">
+                    <input type="time" name="shift_end_time" value="{{ default_end_time }}">
+                    <button>Set On Shift</button>
+                </form>
+            </div>
+        {% else %}
+            <p class="muted">No doctors available yet. Add one below.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>Add Doctor</h3>
+        <form action="{{ url_for('doctors.create_doctor') }}" method="post">
+            <label>Name</label>
+            <input type="text" name="doctor_name" required>
+            <button>Add Doctor</button>
+        </form>
+    </div>
+</body>
+</html>

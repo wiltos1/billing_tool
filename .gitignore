@@ -1,0 +1,8 @@
+# Ignore SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Optional: ignore migrations, cache, etc.
+__pycache__/
+*.pyc
